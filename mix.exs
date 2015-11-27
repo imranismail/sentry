@@ -14,7 +14,7 @@ defmodule Sentry.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger]]
+    [applications: [:logger, :phoenix, :comeonin]]
   end
 
   # Dependencies can be Hex packages:
@@ -27,6 +27,7 @@ defmodule Sentry.Mixfile do
   #
   # Type "mix help deps" for more examples and options
   defp deps do
-    []
+    [{:comeonin, "~> 1.0"},
+     {:phoenix, "~> 1.0"}]
   end
 end

@@ -1,0 +1,2 @@
+%{"comeonin": {:hex, :comeonin, "1.6.0"},
+  "phoenix": {:hex, :phoenix, "1.0.3"},}
