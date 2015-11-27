@@ -9,18 +9,25 @@ defmodule Sentry do
   end
 
   @doc """
-  Authorize a resource by running the similarly named function in the policy module
+  Authorize a resource by running the similarly named function in the similarly named policy module
   """
   def authorize_resource(resource, module, function) do
-    module
-    |> to_string()
-    |> Module.split()
-    |> List.last()
-    |> unsuffix("Controller")
-    |> suffix("Policy")
-    |> Code.eval_string()
-    |> elem(0)
-    |> apply(elem(function, 0), [resource])
+    module_tree = module |> Module.split()
+
+    policy_module =
+      module_tree
+      |> List.last()
+      |> unsuffix("Controller")
+      |> suffix("Policy")
+
+    module =
+      module_tree
+      |> List.replace_at(length(module_tree) - 1, policy_module)
+      |> Module.concat()
+
+    {policy_function, _} = function
+
+    apply(module, policy_function, [resource])
   end
 
   @doc """
