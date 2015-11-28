@@ -1,53 +1,38 @@
 defmodule Sentry do
-  import Phoenix.Naming, only: [unsuffix: 2]
-  import Sentry.Naming, only: [suffix: 2]
+  import Sentry.Naming
 
   defmacro __using__(_opts) do
     quote do
-      import Sentry, only: [authorize_resource: 3, authorize: 1, authorize: 2, authorize: 3]
+      import Sentry
     end
   end
 
   @doc """
   Authorize a resource by running the similarly named function in the similarly named policy module
   """
-  def authorize_resource(resource, module, function) do
-    module_tree = module |> Module.split()
+  def authorize(conn, resource, function) do
+    module_parts = resource.__struct__ |> Module.split
 
     policy_module =
-      module_tree
+      module_parts
       |> List.last()
-      |> unsuffix("Controller")
       |> suffix("Policy")
 
     module =
-      module_tree
-      |> List.replace_at(length(module_tree) - 1, policy_module)
+      module_parts
+      |> List.replace_at(length(module_parts) - 1, policy_module)
       |> Module.concat()
 
-    {policy_function, _} = function
-
-    apply(module, policy_function, [resource])
+    apply(module, function, [conn, resource])
   end
 
   @doc """
-  Macro for authorizing resource which will use the module and function name
+  Macro for authorizing resource which will use the lexically scoped module and function name
   """
-  defmacro authorize(user) do
+  defmacro authorize(conn, resource) do
     quote do
-      authorize_resource(unquote(user), __ENV__.module, __ENV__.function)
-    end
-  end
-
-  defmacro authorize(user, function) do
-    quote do
-      authorize_resource(unquote(user), __ENV__.module, unquote(function))
-    end
-  end
-
-  defmacro authorize(user, module, function) do
-    quote do
-      authorize_resource(unquote(user), unquote(module), unquote(function))
+      {function, _arity} = __ENV__.function
+      authorize(unquote(conn), unquote(resource), function)
     end
   end
 end
