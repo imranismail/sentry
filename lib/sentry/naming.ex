@@ -10,8 +10,8 @@ defmodule Sentry.Naming do
       iex> "User" |> Sentry.Naming.suffix("Controller")
       "UserController"
   """
-  def suffix(a, b) do
-    a <> b
+  def suffix(alias, suffix) do
+    alias <> suffix
   end
 
   @doc """
