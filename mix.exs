@@ -28,6 +28,5 @@ defmodule Sentry.Mixfile do
   # Type "mix help deps" for more examples and options
   defp deps do
     [{:comeonin, "~> 1.0"},
-     {:phoenix, "~> 1.0"}]
   end
 end
