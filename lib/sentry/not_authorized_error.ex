@@ -1,3 +1,3 @@
 defmodule Sentry.NotAuthorizedError do
-  defexception message: "Unauthorized action called"
+  defexception message: "unauthorized action called, please check the resource policy"
 end
