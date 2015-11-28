@@ -1,13 +1,17 @@
+defmodule MyApp.User do
+  defstruct name: nil, age: nil, email: nil
+end
+
 defmodule MyApp.UserController do
   use Sentry
 
-  def create(_conn, resource) do
-    authorize(resource)
+  def create(conn, resource) do
+    authorize(conn, resource)
   end
 end
 
 defmodule MyApp.UserPolicy do
-  def create(resource) do
+  def create(conn, resource) do
     {:ok, resource}
   end
 end
@@ -16,7 +20,9 @@ defmodule SentryTest do
   use ExUnit.Case
   doctest Sentry
 
-  test "a user resource action should use similarly named policy" do
-    assert {:ok, resource} = MyApp.UserController.create("conn", %{name: "Imran"})
+  test "a resource controller action should use similarly named resource policy action" do
+    user = %MyApp.User{name: "John Doe", age: 23, email: "john.doe@example.com"}
+    conn = "this should be the %Plug.Conn{} struct"
+    assert {:ok, _resource} = MyApp.UserController.create(conn, user)
   end
 end
