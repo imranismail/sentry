@@ -18,16 +18,10 @@ defmodule Sentry.Authenticator do
 
   def logout(conn), do: configure_session(conn, drop: true)
 
-  @doc """
-  Generates a password for the user changeset from the "password" params and stores it to the changeset as encrypted_password.
-  """
   def encrypt_password(changeset) do
     Changeset.put_change(changeset, :encrypted_password, Bcrypt.hashpwsalt(changeset.params["password"]))
   end
 
-  @doc """
-  Checks a user's authenticity
-  """
   def validate_authenticity(auth) do
     opts = Application.get_env(:sentry, Sentry)
 
@@ -49,7 +43,7 @@ defmodule Sentry.Authenticator do
     end
   end
 
-  defp validate_password(nil, password), do: {:error, "User not found"}
+  defp validate_password(nil, _password), do: {:error, "User not found"}
   defp validate_password(user, password) do
     case Bcrypt.checkpw(password, user.encrypted_password) do
       true  -> {:ok, user}
