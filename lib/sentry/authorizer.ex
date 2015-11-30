@@ -15,7 +15,7 @@ defmodule Sentry.Authorizer do
     |> apply(function, [conn, changeset])
   end
 
-  def authorized?(conn, module, function, opts \\ nil) do
+  def authorized?(conn, module, function, opts) do
     module_parts = module |> Module.split
 
     policy =
@@ -46,7 +46,7 @@ defmodule Sentry.Authorizer do
     end
   end
 
-  defmacro authorize(conn, opts) do
+  defmacro authorize(conn, opts \\ nil) do
     quote do
       unless authorized?(unquote(conn), __MODULE__, elem(__ENV__.function, 0), unquote(opts)) do
         raise Sentry.NotAuthorizedError
