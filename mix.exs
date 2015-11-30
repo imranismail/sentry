@@ -14,7 +14,7 @@ defmodule Sentry.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :comeonin]]
+    [applications: [:logger, :comeonin, :plug, :ecto, :ueberauth, :ueberauth_identity]]
   end
 
   # Dependencies can be Hex packages:
@@ -27,6 +27,11 @@ defmodule Sentry.Mixfile do
   #
   # Type "mix help deps" for more examples and options
   defp deps do
-    []
+    [{:comeonin, "~> 1.0"},
+     {:ecto, "~> 1.0"},
+     {:plug, "~> 1.0"},
+     {:ueberauth, "~> 0.2"},
+     {:ueberauth_identity, "~> 0.1"},
+     {:comeonin, "~> 1.0"}]
   end
 end
