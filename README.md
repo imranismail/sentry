@@ -9,7 +9,7 @@ If [available in Hex](https://hex.pm/docs/publish), the package can be installed
   1. Add sentry to your list of dependencies in `mix.exs`:
 
         def deps do
-          [{:sentry, "~> 0.0.1"}]
+          [{:sentry, "~> 0.0.2"}]
         end
 
   2. Ensure sentry is started before your application:
