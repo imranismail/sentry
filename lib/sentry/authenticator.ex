@@ -1,5 +1,5 @@
 defmodule Sentry.Authenticator do
-  import Plug.Conn, only: [get_session: 2, configure_session: 2]
+  import Plug.Conn, only: [get_session: 2, delete_session: 2]
 
   alias Ecto.Changeset
   alias Comeonin.Bcrypt
@@ -16,7 +16,7 @@ defmodule Sentry.Authenticator do
 
   def logged_in?(conn), do: !!get_session(conn, :current_user)
 
-  def logout(conn), do: configure_session(conn, drop: true)
+  def logout(conn), do: delete_session(conn, :current_user)
 
   def encrypt_password(changeset) do
     Changeset.put_change(changeset, :encrypted_password, Bcrypt.hashpwsalt(changeset.params["password"]))
