@@ -214,8 +214,9 @@ end
 the `authorize_changeset/2` macro basically does this
 
 ```elixir
-unless MyApp.PostPolicy.update(conn, changeset) do
-  raise Sentry.NotAuthorizedError
+case MyApp.PostPolicy.update(conn, changeset) do
+  false  -> raise Sentry.NotAuthorizedError
+  result -> result
 end
 ```
 
