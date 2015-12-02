@@ -1,84 +1,94 @@
 # Sentry
 
-Sentry provides a set of helpers and conventions that will guide you in leveraging Elixir modules to build a simple, robust authorization system.
+"Sentry provides a set of helpers and conventions that will guide you in leveraging Elixir modules to build a simple, robust authorization system." - Inspired by [elabs/pundit](https://github.com/elabs/pundit)
 
+## TODOs
+- Generators
+- JWT
 
 ## Installation
-  1. Add sentry to your list of dependencies in `mix.exs`:
+Add sentry to your list of dependencies in `mix.exs`:
 
-  ```elixir
-    def deps do
-      [{:sentry, "~> 0.1.0"}]
-    end
-  ```
+```elixir
+def deps do
+  [{:sentry, "~> 0.1.0"}]
+end
+```
 
-  2. Ensure sentry is started before your application:
+Ensure sentry is started before your application:
 
-  ```elixir
-  def application do
-    [applications: [:sentry]]
-  end
-  ```
+```elixir
+def application do
+  [applications: [:sentry]]
+end
+```
 
-  3. Ensure your `User` model and `users` table has the following fields:
-    - `:encrypted_password`
-    - `email`
-    - and a virtual `password` field.
+Ensure your `User` model and `users` table has the following fields:
+  - `:encrypted_password` field
+  - a user identification field. Defaults to `email`
+  - and a virtual password field. Defaults to `password`
 
-  ```elixir
-  # web/models/user.ex
-  defmodule MyApp.User do
+```elixir
+# web/models/user.ex
+
+defmodule MyApp.User do
   use MyApp.Web, :model
 
-    schema "users" do
-      field :email, :string
-      field :encrypted_password, :string
-      field :password, :string, virtual: true
-      field :password_confirmation, :string, virtual: true
-      ...
-      timestamps
-    end
+  schema "users" do
+    field :email, :string
+    field :encrypted_password, :string
+    field :password, :string, virtual: true
+    field :password_confirmation, :string, virtual: true
+    ...
+    timestamps
   end
-  ```
+end
+```
 
-  4. Configure Ueberauth and Sentry in `config/config.exs`
-  ```elixir
-  # config/config.exs
+Configure Ueberauth and Sentry in `config/config.exs`
+```elixir
+# config/config.exs
 
-  # Ueberauth
-  config :ueberauth, Ueberauth,
-    providers: [
-      identity: {Ueberauth.Strategy.Identity, [
-        callback_methods: ["POST"]
-      ]}
-    ]
+# Ueberauth
+config :ueberauth, Ueberauth,
+  providers: [
+    identity: {Ueberauth.Strategy.Identity, [
+      callback_methods: ["POST"]
+    ]}
+  ]
 
-  # Sentry
-  config :sentry, Sentry,
-    repo: MyApp.Repo,
-    model: MyApp.User # you may use a different model as you like
-    # uid_field: :some_id_field \\ defaults to :email
-    # password_field: :some_pw_field \\ defaults to :password
-  ```
+# Sentry
+config :sentry, Sentry,
+  repo: MyApp.Repo,
+  model: MyApp.User # you may use a different model as you like
+  # uid_field: :some_id_field \\ defaults to :email
+  # password_field: :some_pw_field \\ defaults to :password
+```
 
 ## Authentication
- For authentication please follow the following example, please refer to [Ueberatuh Readme](https://github.com/ueberauth/ueberauth) for more detail
+Sentry leverages [ueberauth](https://github.com/ueberauth/ueberauth) for the authentication layer with an addition of bcrypt encryption when storing and authenticating user.
 
- sentry provides the Sentry.Authenticator.attempt/1 method for authenticating users
- this uses the ueberauth_identity stratergy to collect useful information into
- the %Auth{} struct
+Sentry provides useful helpers for working with users on your system
 
- ```elixir
- # web/controllers/auth_controller
+- `Sentry.Authenticator.attempt/1`
+- `Sentry.Authenticator.logout/1`
+- `Sentry.Authenticator.encrypt_password/1`
+- `Sentry.Authenticator.logged_in?/1`
+- `Sentry.Authenticator.current_user/1`
 
- defmodule MyApp.AuthController do
+here's an example use case
+
+```elixir
+# web/controllers/auth_controller
+
+defmodule MyApp.AuthController do
   use MyApp.Web, :controller
-  import Sentry.Authenticator
-  alias Ueberauth.Strategy.Helpers
+  use Sentry, :authenticator
+
   alias MyApp.User
 
   def request(conn, %{"provider" => "identity"} = _params) do
-    render(conn, callback_url: Helpers.callback_url(conn),
+    render(conn, callback_url: callback_url(conn),
       changeset: User.changeset(%User{}))
   end
 
@@ -103,77 +113,92 @@ Sentry provides a set of helpers and conventions that will guide you in leveragi
       {:error, reason} ->
         conn
         |> put_flash(:error, reason)
-        |> redirect(to: Helpers.request_path(conn))
+        |> redirect(to: request_path(conn))
     end
   end
-  ```
 
-  ```elixir
-  # web/router.ex
+  def delete(conn, _params) do
+    conn
+    |> put_flash(:info, "You've been logged out!")
+    |> logout()
+    |> redirect(to: "/")
+  end
+end
+```
 
-  defmodule MyApp.Router do
+```elixir
+# web/router.ex
+
+defmodule MyApp.Router do
   ...
-    pipeline :auth do
-      plug Ueberauth
-    end
-
-    scope "/auth", MyApp do
-      pipe_through [:browser, :auth]
-
-      get "/logout", AuthController, :delete
-      get "/:provider", AuthController, :request
-      get "/:provider/callback", AuthController, :callback
-      post "/:provider/callback", AuthController, :callback
-    end
+  pipeline :auth do
+    plug Ueberauth
   end
-  ```
 
-  And last but not least the view
+  scope "/auth", MyApp do
+    pipe_through [:browser, :auth]
 
-  ```elixir
-  # web/templates/auth/request.html.eex
-  <%= form_for @changeset, @callback_url, fn f -> %>
-    <%= if f.errors != [] do %>
-      <div class="alert alert-danger">
-        <p>Oops, something went wrong! Please check the errors below:</p>
-        <ul>
-          <%= for {attr, message} <- f.errors do %>
-            <li><%= humanize(attr) %> <%= message %></li>
-          <% end %>
-        </ul>
-      </div>
-    <% end %>
+    get "/logout", AuthController, :delete
+    get "/:provider", AuthController, :request
+    get "/:provider/callback", AuthController, :callback
+    post "/:provider/callback", AuthController, :callback
+  end
+end
+```
 
-    <div class="form-group">
-      <label>Email</label>
-      <%= text_input f, :email, class: "form-control" %>
-    </div>
+```elixir
+# web/view/layout_view.ex
+defmodule MyApp.LayoutView do
+  use MyApp.Web, :view
+  use Sentry, :view # this adds the logged_in?/1 and current_user/1 helper to the view
+end
+```
 
-    <div class="form-group">
-      <label>Password</label>
-      <%= password_input f, :password, class: "form-control" %>
-    </div>
+```elixir
+# web/templates/auth/request.html.eex
 
-    <div class="form-group">
-      <%= submit "Login", class: "btn btn-primary" %>
+<%= form_for @changeset, @callback_url, fn f -> %>
+  <%= if f.errors != [] do %>
+    <div class="alert alert-danger">
+      <p>Oops, something went wrong! Please check the errors below:</p>
+      <ul>
+        <%= for {attr, message} <- f.errors do %>
+          <li><%= humanize(attr) %> <%= message %></li>
+        <% end %>
+      </ul>
     </div>
   <% end %>
-  ```
+
+  <div class="form-group">
+    <label>Email</label>
+    <%= text_input f, :email, class: "form-control" %>
+  </div>
+
+  <div class="form-group">
+    <label>Password</label>
+    <%= password_input f, :password, class: "form-control" %>
+  </div>
+
+  <div class="form-group">
+    <%= submit "Login", class: "btn btn-primary" %>
+  </div>
+<% end %>
+```
 
 ## Authorization
 For authorization, we have 3 macros for dealing with it
- - `Sentry.Authorizer.authorize/2`
- - `Sentry.Authorizer.authorize_changeset/2`
- - `Sentry.Authorizer.authorize_changeset/3`
+- `Sentry.Authorizer.authorize/2`
+- `Sentry.Authorizer.authorize_changeset/2`
+- `Sentry.Authorizer.authorize_changeset/3`
 
-Let's say you would like to authorize a create post action based on a set of conditions
-and it'll only authorize when those conditions are met.
+Let's say a `PostController.Create` action should only be authorized when a set of conditions returns true.
 
 ```elixir
 # web/controllers/post_controller.ex
 
 defmodule MyApp.PostController do
-  import Sentry.Authorizer
+  use Sentry, :authorizer
+
   alias MyApp.Repo
   alias MyApp.Post
 
@@ -181,26 +206,24 @@ defmodule MyApp.PostController do
     changeset = Repo.get!(Post, id)
     |> Post.changeset(params)
 
-    authorize_changeset(conn, changeset)
+    authorize_changeset(conn, changeset) # you may optionally override the function to be executed on the policy module by passing a third argument. Example: :create
   end
 end
 ```
 
 the `authorize_changeset/2` macro basically does this
 
-```
+```elixir
 unless MyApp.PostPolicy.update(conn, changeset) do
   raise Sentry.NotAuthorizedError
 end
 ```
 
-so, you can use something like [Plug.ErrorHandler](http://hexdocs.pm/plug/Plug.ErrorHandler.html) to handle these errors on the router level like maybe send them to a 401.html page?
-
 ```elixir
 # web/policies/post_policy.ex
 
 defmodule MyApp.PostPolicy do
-  import Sentry.Authenticator
+  use Sentry, :authenticator
 
   def update(conn, changeset) do
     current_user = current_user(conn) # here we use Sentry.Authenticator.current_user helper to get the current user in the session
@@ -210,9 +233,38 @@ defmodule MyApp.PostPolicy do
 end
 ```
 
-If you are not working on a changeset/resource you may opt to use the `Sentry.Authorizer.authorize/2` instead, the second optional argument can be used to pass data to the policy action. Do take not the `Sentry.Authorizer.authorize/2` will use the policy name based on the controller name.
+### Authorization without resource/changeset
 
-for example: an action on `UserController.create` will use `UserPolicy.create`
+If you are not working on a changeset/resource you may opt to use the `Sentry.Authorizer.authorize/2` instead, the second optional argument can be used to pass data to the policy action.
+
+Do take note the `Sentry.Authorizer.authorize/2` will use the policy name based on the controller name.
+
+For example: an action on `UserController.create` will use `UserPolicy.create`
+
+```elixir
+# web/controllers/user_controller.ex
+
+defmodule UserController do
+  use Sentry, :authorizer
+
+  def create(conn, params) do
+    authorize(conn, params)
+  end
+end
+```
+
+```elixir
+# web/policies/user_policy.ex
+
+defmodule UserPolicy do
+  def create(conn, opts) do
+    true
+  end
+end
+```
+
+## Error Handling
+To handle the errors raised by `Sentry.Authorizer.authorize`, we can use something like [Plug.ErrorHandler](http://hexdocs.pm/plug/Plug.ErrorHandler.html). This can either be plugged at the router level or controller.
 
 ## License
 
