@@ -9,39 +9,63 @@ defmodule Sentry.Helpers do
   @doc """
   The model module that is being used for authentication
   """
-  def model(conn), do: from_private(conn, :model)
+  def model, do: from_options(:model)
 
   @doc """
   The model name that is being used for authentiction
   """
-  def model_name(conn), do: conn |> model |> resource_name
+  def model_name, do: model |> resource_name
 
   @doc """
   The uid_field atom from config.exs
   """
-  def uid_field(conn), do: from_private(conn, :uid_field) || :email
+  def uid_key, do: from_options(:uid_field) || :email
 
   @doc """
   The password_field atom from config.exs
   """
-  def password_field(conn), do: from_private(conn, :password_field) || :password
+  def password_key, do: from_options(:password_field) || :password
 
   @doc """
   The repo module that the user model is being checked against
   """
-  def repo(conn), do: from_private(conn, :repo)
+  def repo, do: from_options(:repo)
 
   @doc """
   The full list of options passed to the sentry in the configuration.
   """
-  @spec options(Plug.t) :: Keyword.t
-  def options(conn), do: from_private(conn, :options)
+  def options, do: from_options(:options)
 
   @doc """
   The full raw parameters from the Auth struct
   """
-  @spec options(Auth.t) :: Map.t
-  def params(%Auth{extra: %Extra{raw_info: params}}), do: params
+  def params(%{assigns: %{ueberauth_auth: auth}}) do
+    %Auth{extra: %Extra{raw_info: params}} = auth
+    params
+  end
+
+  @doc """
+  The user params
+  """
+  def user_params(conn), do: Map.get(params(conn), model_name)
+
+  @doc """
+  The uid value in user_params
+  """
+  def uid(conn) do
+    key = uid_key |> to_string
+    %{^key => uid} = user_params(conn)
+    uid
+  end
+
+  @doc """
+  The password value in user params
+  """
+  def password(conn) do
+    key = password_key |> to_string
+    %{^key => password} = user_params(conn)
+    password
+  end
 
   @doc """
   Provides a convenient way to suffix string using pipes
@@ -201,8 +225,8 @@ defmodule Sentry.Helpers do
     bin |> String.replace("_", " ") |> String.capitalize
   end
 
-  defp from_private(conn, key) do
-    options = conn.private[:sentry_options]
+  defp from_options(key) do
+    options = Application.get_env(:sentry, Sentry)
     if options, do: options[key], else: nil
   end
 end
