@@ -1,13 +1,12 @@
 defmodule Sentry.Authorizer do
-  import Sentry.Naming, only: [suffix: 2, unsuffix: 2]
+  import Sentry.Helpers, only: [suffix: 2, unsuffix: 2]
 
   def authorized_changeset?(conn, changeset, function) do
     module_parts = changeset.model.__struct__ |> Module.split
 
-    policy =
-      module_parts
-      |> List.last()
-      |> suffix("Policy")
+    policy = module_parts
+    |> List.last()
+    |> suffix("Policy")
 
     module_parts
     |> List.replace_at(length(module_parts) - 1, policy)
@@ -18,11 +17,10 @@ defmodule Sentry.Authorizer do
   def authorized?(conn, module, function, opts) do
     module_parts = module |> Module.split
 
-    policy =
-      module_parts
-      |> List.last()
-      |> unsuffix("Controller")
-      |> suffix("Policy")
+    policy = module_parts
+    |> List.last()
+    |> unsuffix("Controller")
+    |> suffix("Policy")
 
     module_parts
     |> List.replace_at(length(module_parts) - 1, policy)
