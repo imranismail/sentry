@@ -1,7 +1,23 @@
-defmodule Sentry.Naming do
+defmodule Sentry.Helpers do
   @moduledoc """
-  Helper functions for working with names
+  Helper functions for working with sentry
   """
+
+  @doc """
+  The model module that is being used for authentication
+  """
+  def model(conn), do: from_private(conn, :model)
+
+  @doc """
+  The repo module that the user model is being checked against
+  """
+  def repo(conn), do: from_private(conn, :repo)
+
+  @doc """
+  The full list of options passed to the sentry in the configuration.
+  """
+  @spec options(Plug.t) :: Keyword.t
+  def options(conn), do: from_private(conn, :options)
 
   @doc """
   Provides a convenient way to suffix string using pipes
@@ -30,5 +46,10 @@ defmodule Sentry.Naming do
       <<prefix::binary-size(prefix_size), ^suffix::binary>> -> prefix
       _ -> string
     end
+  end
+
+  defp from_private(conn, key) do
+    options = conn.private[:sentry_options]
+    if options, do: options[key], else: nil
   end
 end
