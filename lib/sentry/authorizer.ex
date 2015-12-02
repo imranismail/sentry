@@ -30,24 +30,27 @@ defmodule Sentry.Authorizer do
 
   defmacro authorize_changeset(conn, changeset) do
     quote do
-      unless authorized_changeset?(unquote(conn), unquote(changeset), elem(__ENV__.function, 0)) do
-        raise Sentry.NotAuthorizedError
+      case authorized_changeset?(unquote(conn), unquote(changeset), elem(__ENV__.function, 0)) do
+        false  -> raise Sentry.NotAuthorizedError
+        result -> result
       end
     end
   end
 
   defmacro authorize_changeset(conn, changeset, function) do
     quote do
-      unless authorized_changeset?(unquote(conn), unquote(changeset), unquote(function)) do
-        raise Sentry.NotAuthorizedError
+      case authorized_changeset?(unquote(conn), unquote(changeset), unquote(function)) do
+        false  -> raise Sentry.NotAuthorizedError
+        result -> result
       end
     end
   end
 
   defmacro authorize(conn, opts \\ nil) do
     quote do
-      unless authorized?(unquote(conn), __MODULE__, elem(__ENV__.function, 0), unquote(opts)) do
-        raise Sentry.NotAuthorizedError
+      case authorized?(unquote(conn), __MODULE__, elem(__ENV__.function, 0), unquote(opts)) do
+        false  -> raise Sentry.NotAuthorizedError
+        result -> result
       end
     end
   end
