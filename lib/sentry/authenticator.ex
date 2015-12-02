@@ -4,6 +4,8 @@ defmodule Sentry.Authenticator do
   alias Plug.Conn
   alias Ecto.Changeset
   alias Comeonin.Bcrypt
+  alias Ueberauth.Auth
+  alias Ueberauth.Auth.Extra
 
   def attempt(conn) do
     case validate_authenticity(uid(conn), password(conn)) do
@@ -38,5 +40,35 @@ defmodule Sentry.Authenticator do
       true  -> {:ok, user}
       _     -> {:error, "No matching password found"}
     end
+  end
+
+  defp uid(conn) do
+    key = uid_key |> to_string
+    Map.get(user_params(conn), key)
+  end
+
+  defp password(conn) do
+    key = password_key |> to_string
+    Map.get(user_params(conn), key)
+  end
+
+  defp model, do: from_options(:model)
+
+  defp repo, do: from_options(:repo)
+
+  defp uid_key, do: from_options(:uid_field) || :email
+
+  defp password_key, do: from_options(:password_field) || :password
+
+  defp params(%{assigns: %{ueberauth_auth: auth}}) do
+    %Auth{extra: %Extra{raw_info: params}} = auth
+    params
+  end
+
+  defp user_params(conn), do: Map.get(params(conn), model |> resource_name)
+
+  defp from_options(key) do
+    options = Application.get_env(:sentry, Sentry)
+    if options, do: options[key], else: nil
   end
 end
