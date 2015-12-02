@@ -1,9 +1,71 @@
-defmodule Sentry.Naming do
+defmodule Sentry.Helpers do
   @moduledoc """
-  Credit goes to the Phoenix contributors, extracted some functions from Phoenix.Naming
-  https://github.com/phoenixframework/phoenix/blob/master/lib/phoenix/naming.ex
-  Conveniences for inflecting and working with names in Phoenix.
+  Helper functions for working with sentry and phoenix naming convention with some functions taken from Phoenix.Naming
   """
+
+  alias Ueberauth.Auth
+  alias Ueberauth.Auth.Extra
+
+  @doc """
+  The model module that is being used for authentication
+  """
+  def model, do: from_options(:model)
+
+  @doc """
+  The model name that is being used for authentiction
+  """
+  def model_name, do: model |> resource_name
+
+  @doc """
+  The uid_field atom from config.exs
+  """
+  def uid_key, do: from_options(:uid_field) || :email
+
+  @doc """
+  The password_field atom from config.exs
+  """
+  def password_key, do: from_options(:password_field) || :password
+
+  @doc """
+  The repo module that the user model is being checked against
+  """
+  def repo, do: from_options(:repo)
+
+  @doc """
+  The full list of options passed to the sentry in the configuration.
+  """
+  def options, do: from_options(:options)
+
+  @doc """
+  The full raw parameters from the Auth struct
+  """
+  def params(%{assigns: %{ueberauth_auth: auth}}) do
+    %Auth{extra: %Extra{raw_info: params}} = auth
+    params
+  end
+
+  @doc """
+  The user params
+  """
+  def user_params(conn), do: Map.get(params(conn), model_name)
+
+  @doc """
+  The uid value in user_params
+  """
+  def uid(conn) do
+    key = uid_key |> to_string
+    %{^key => uid} = user_params(conn)
+    uid
+  end
+
+  @doc """
+  The password value in user params
+  """
+  def password(conn) do
+    key = password_key |> to_string
+    %{^key => password} = user_params(conn)
+    password
+  end
 
   @doc """
   Provides a convenient way to suffix string using pipes
@@ -17,9 +79,9 @@ defmodule Sentry.Naming do
   @doc """
   Extracts the resource name from an alias.
   ## Examples
-      iex> Sentry.Naming.resource_name(MyApp.User)
+      iex> Phoenix.Naming.resource_name(MyApp.User)
       "user"
-      iex> Sentry.Naming.resource_name(MyApp.UserView, "View")
+      iex> Phoenix.Naming.resource_name(MyApp.UserView, "View")
       "user"
   """
   @spec resource_name(String.Chars.t, String.t) :: String.t
@@ -35,9 +97,9 @@ defmodule Sentry.Naming do
   @doc """
   Removes the given suffix from the name if it exists.
   ## Examples
-      iex> Sentry.Naming.unsuffix("MyApp.User", "View")
+      iex> Phoenix.Naming.unsuffix("MyApp.User", "View")
       "MyApp.User"
-      iex> Sentry.Naming.unsuffix("MyApp.UserView", "View")
+      iex> Phoenix.Naming.unsuffix("MyApp.UserView", "View")
       "MyApp.User"
   """
   @spec unsuffix(String.t, String.t) :: String.t
@@ -54,12 +116,12 @@ defmodule Sentry.Naming do
   @doc """
   Converts String to underscore case.
   ## Examples
-      iex> Sentry.Naming.underscore("MyApp")
+      iex> Phoenix.Naming.underscore("MyApp")
       "my_app"
   In general, `underscore` can be thought of as the reverse of
   `camelize`, however, in some cases formatting may be lost:
-      Sentry.Naming.underscore "SAPExample"  #=> "sap_example"
-      Sentry.Naming.camelize   "sap_example" #=> "SapExample"
+      Phoenix.Naming.underscore "SAPExample"  #=> "sap_example"
+      Phoenix.Naming.camelize   "sap_example" #=> "SapExample"
   """
   @spec underscore(String.t) :: String.t
 
@@ -95,12 +157,12 @@ defmodule Sentry.Naming do
   @doc """
   Converts String to camel case.
   ## Examples
-      iex> Sentry.Naming.camelize("my_app")
+      iex> Phoenix.Naming.camelize("my_app")
       "MyApp"
   In general, `camelize` can be thought of as the reverse of
   `underscore`, however, in some cases formatting may be lost:
-      Sentry.Naming.underscore "SAPExample"  #=> "sap_example"
-      Sentry.Naming.camelize   "sap_example" #=> "SapExample"
+      Phoenix.Naming.underscore "SAPExample"  #=> "sap_example"
+      Phoenix.Naming.camelize   "sap_example" #=> "SapExample"
   """
   @spec camelize(String.t) :: String.t
   def camelize(""), do: ""
@@ -142,11 +204,11 @@ defmodule Sentry.Naming do
 
   @doc """
   Converts an attribute/form field into its humanize version.
-      iex> Sentry.Naming.humanize(:username)
+      iex> Phoenix.Naming.humanize(:username)
       "Username"
-      iex> Sentry.Naming.humanize(:created_at)
+      iex> Phoenix.Naming.humanize(:created_at)
       "Created at"
-      iex> Sentry.Naming.humanize("user_id")
+      iex> Phoenix.Naming.humanize("user_id")
       "User"
   """
   @spec humanize(atom | String.t) :: String.t
@@ -161,5 +223,10 @@ defmodule Sentry.Naming do
       end
 
     bin |> String.replace("_", " ") |> String.capitalize
+  end
+
+  defp from_options(key) do
+    options = Application.get_env(:sentry, Sentry)
+    if options, do: options[key], else: nil
   end
 end
