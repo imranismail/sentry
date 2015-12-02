@@ -1,11 +1,11 @@
 defmodule Sentry do
-  def authenticator do
+  def authorizer do
     quote do
       import Sentry.Authorizer
     end
   end
 
-  def authorizer do
+  def authenticator do
     quote do
       import Sentry.Authenticator
       import Ueberauth.Strategy.Helpers
