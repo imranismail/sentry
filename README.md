@@ -8,7 +8,7 @@ Sentry provides a set of helpers and conventions that will guide you in leveragi
 
   ```elixir
     def deps do
-      [{:sentry, github: "imranismail/sentry", branch: "develop"}]
+      [{:sentry, "~> 0.1.0"}]
     end
   ```
 
