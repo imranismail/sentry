@@ -28,7 +28,7 @@ defmodule Sentry.Authenticator do
   defp validate_authenticity(_uid, ""), do: {:error, "Password is required"}
   defp validate_authenticity("", _password), do: {:error, "Identification is required"}
   defp validate_authenticity(uid, password) do
-    repo.get_by(model, [{uid_key(), uid}])
+    repo.get_by(model, [{uid_key, uid}])
     |> validate_password(password)
   end
 
