@@ -3,10 +3,12 @@ defmodule Sentry.Mixfile do
 
   def project do
     [app: :sentry,
-     version: "0.0.2",
+     version: "0.1.0",
      elixir: "~> 1.1",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
+     description: description,
+     package: package,
      deps: deps]
   end
 
@@ -15,6 +17,20 @@ defmodule Sentry.Mixfile do
   # Type "mix help compile.app" for more information
   def application do
     [applications: [:logger, :comeonin, :plug, :ecto, :ueberauth, :ueberauth_identity]]
+  end
+
+  defp description do
+    """
+    Simplified authentication and authorization package for Phoenix
+    """
+  end
+
+  defp package do
+    [# These are the default files included in the package
+     files: ["lib", "mix.exs", "README.md", "LICENSE"],
+     maintainers: ["Imran Ismail"],
+     licenses: ["MIT"],
+     links: %{"GitHub" => "https://github.com/imranismail/sentry"}]
   end
 
   # Dependencies can be Hex packages:
