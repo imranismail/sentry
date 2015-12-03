@@ -11,7 +11,7 @@ Add sentry to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:sentry, "~> 0.1"}]
+  [{:sentry, "~> 0.2"}]
 end
 ```
 
