@@ -1,57 +1,74 @@
 defmodule Sentry.Authorizer do
-  import Sentry.Helpers, only: [suffix: 2, unsuffix: 2]
+  import Sentry.Helpers, only: [unsuffix: 2, suffix: 2]
 
-  def authorized_changeset?(conn, changeset, function) do
-    module_parts = changeset.model.__struct__ |> Module.split
+  def authorize_changeset(conn, changeset, function \\ nil) do
+    policy   = policy_module(changeset.model.__struct__)
+    function = function || conn.private[:phoenix_action]
 
-    policy = module_parts
-    |> List.last()
-    |> suffix("Policy")
-
-    module_parts
-    |> List.replace_at(length(module_parts) - 1, policy)
-    |> Module.concat()
-    |> apply(function, [conn, changeset])
+    apply_policy!(policy, function, [conn, changeset])
   end
 
-  def authorized?(conn, module, function, opts) do
+  def authorize_changeset!(conn, changeset, function \\ nil) do
+    policy   = policy_module(changeset.model.__struct__)
+    function = function || conn.private[:phoenix_action]
+
+    apply_policy!(policy, function, [conn, changeset])
+  end
+
+  def authorize(conn, opts \\ nil) do
+    policy   = policy_module(conn.private[:phoenix_controller], "Controller")
+    function = conn.private[:phoenix_action]
+
+    apply_policy(policy, function, [conn, opts])
+  end
+
+  def authorize!(conn, opts \\ nil) do
+    policy   = policy_module(conn.private[:phoenix_controller], "Controller")
+    function = conn.private[:phoenix_action]
+
+    apply_policy(policy, function, [conn, opts])
+  end
+
+  defp apply_policy(module, function, args) do
+    check_policy!(module)
+
+    case apply(module, function, args) do
+      {:ok, result}    -> {:ok, result}
+      {:error, reason} -> {:error, reason}
+      _                -> raise Sentry.MatchError, module: module,
+                                                    function: function,
+                                                    arity: length(args)
+    end
+  end
+
+  defp apply_policy!(module, function, args) do
+    check_policy!(module)
+
+    case apply(module, function, args) do
+      {:ok, result}    -> result
+      {:error, reason} -> raise Sentry.NotAuthorizedError, reason: reason
+      _                -> raise Sentry.MatchError, module: module,
+                                                    function: function,
+                                                    arity: length(args)
+    end
+  end
+
+  defp check_policy!(policy) do
+    unless Code.ensure_loaded?(policy) do
+      raise Sentry.UndefinedPolicyError, policy: policy
+    end
+  end
+
+  defp policy_module(module, suffix \\ "") do
     module_parts = module |> Module.split
 
     policy = module_parts
-    |> List.last()
-    |> unsuffix("Controller")
+    |> List.last
+    |> unsuffix(suffix)
     |> suffix("Policy")
 
     module_parts
     |> List.replace_at(length(module_parts) - 1, policy)
-    |> Module.concat()
-    |> apply(function, [conn, opts])
-  end
-
-  defmacro authorize_changeset(conn, changeset) do
-    quote do
-      case authorized_changeset?(unquote(conn), unquote(changeset), elem(__ENV__.function, 0)) do
-        false  -> raise Sentry.NotAuthorizedError
-        result -> result
-      end
-    end
-  end
-
-  defmacro authorize_changeset(conn, changeset, function) do
-    quote do
-      case authorized_changeset?(unquote(conn), unquote(changeset), unquote(function)) do
-        false  -> raise Sentry.NotAuthorizedError
-        result -> result
-      end
-    end
-  end
-
-  defmacro authorize(conn, opts \\ nil) do
-    quote do
-      case authorized?(unquote(conn), __MODULE__, elem(__ENV__.function, 0), unquote(opts)) do
-        false  -> raise Sentry.NotAuthorizedError
-        result -> result
-      end
-    end
+    |> Module.concat
   end
 end

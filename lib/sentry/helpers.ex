@@ -3,70 +3,6 @@ defmodule Sentry.Helpers do
   Helper functions for working with sentry and phoenix naming convention with some functions taken from Phoenix.Naming
   """
 
-  alias Ueberauth.Auth
-  alias Ueberauth.Auth.Extra
-
-  @doc """
-  The model module that is being used for authentication
-  """
-  def model, do: from_options(:model)
-
-  @doc """
-  The model name that is being used for authentiction
-  """
-  def model_name, do: model |> resource_name
-
-  @doc """
-  The uid_field atom from config.exs
-  """
-  def uid_key, do: from_options(:uid_field) || :email
-
-  @doc """
-  The password_field atom from config.exs
-  """
-  def password_key, do: from_options(:password_field) || :password
-
-  @doc """
-  The repo module that the user model is being checked against
-  """
-  def repo, do: from_options(:repo)
-
-  @doc """
-  The full list of options passed to the sentry in the configuration.
-  """
-  def options, do: from_options(:options)
-
-  @doc """
-  The full raw parameters from the Auth struct
-  """
-  def params(%{assigns: %{ueberauth_auth: auth}}) do
-    %Auth{extra: %Extra{raw_info: params}} = auth
-    params
-  end
-
-  @doc """
-  The user params
-  """
-  def user_params(conn), do: Map.get(params(conn), model_name)
-
-  @doc """
-  The uid value in user_params
-  """
-  def uid(conn) do
-    key = uid_key |> to_string
-    %{^key => uid} = user_params(conn)
-    uid
-  end
-
-  @doc """
-  The password value in user params
-  """
-  def password(conn) do
-    key = password_key |> to_string
-    %{^key => password} = user_params(conn)
-    password
-  end
-
   @doc """
   Provides a convenient way to suffix string using pipes
       iex> "User" |> Sentry.Naming.suffix("Controller")
@@ -223,10 +159,5 @@ defmodule Sentry.Helpers do
       end
 
     bin |> String.replace("_", " ") |> String.capitalize
-  end
-
-  defp from_options(key) do
-    options = Application.get_env(:sentry, Sentry)
-    if options, do: options[key], else: nil
   end
 end
