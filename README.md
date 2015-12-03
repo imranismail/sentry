@@ -79,7 +79,7 @@ Sentry provides useful helpers for working with users on your system
 here's an example use case
 
 ```elixir
-# web/controllers/auth_controller
+# web/controllers/auth_controller.ex
 
 defmodule MyApp.AuthController do
   use MyApp.Web, :controller
@@ -105,6 +105,10 @@ defmodule MyApp.AuthController do
   end
 
   def callback(conn, %{"provider" => "identity"}) do
+    # attempts to authorize user
+    # once authorized you can then access the user info with
+    # `Sentry.Authenticator.current_user/1`
+    # or check if logged in with `Sentry.Authenticator.logged_in?/1`
     case attempt(conn) do
       {:ok, conn} ->
         conn
@@ -150,7 +154,8 @@ end
 # web/view/layout_view.ex
 defmodule MyApp.LayoutView do
   use MyApp.Web, :view
-  use Sentry, :view # this adds the logged_in?/1 and current_user/1 helper to the view
+  # this adds the logged_in?/1 and current_user/1 helper to the view
+  use Sentry, :view
 end
 ```
 
@@ -186,86 +191,165 @@ end
 ```
 
 ## Authorization
-For authorization, we have 3 macros for dealing with it
-- `Sentry.Authorizer.authorize/2`
-- `Sentry.Authorizer.authorize_changeset/2`
-- `Sentry.Authorizer.authorize_changeset/3`
+For authorization, we have the following functions for dealing with it
 
-Let's say a `PostController.Create` action should only be authorized when a set of conditions returns true.
+- `Sentry.Authorizer.authorize/2`
+- `Sentry.Authorizer.authorize_changeset/3`
+- `Sentry.Authorizer.authorize!/2`
+- `Sentry.Authorizer.authorize_changeset!/3`
+
+The bang functions follows Elixir's [convention](http://elixir-lang.org/getting-started/try-catch-and-rescue.html#errors) of throwing exceptions and returning values instead of returning tuples like {:ok, result} or {:error, reason}
 
 ```elixir
-# web/controllers/post_controller.ex
+# web/controllers/auth_controller.ex
 
-defmodule MyApp.PostController do
-  use Sentry, :authorizer
+defmodule MyApp.AuthController do
+  use MyApp.Web, :controller
+  use Sentry, :authenticator
 
-  alias MyApp.Repo
-  alias MyApp.Post
+  alias MyApp.User
 
-  def update(conn, %{"id" => id, "post" => post_params}) do
-    changeset = Repo.get!(Post, id)
-    |> Post.changeset(params)
+  def request(conn, %{"provider" => "identity"} = _params) do
+    # you may pass an optional second parameter as
+    # a data that is then accessable on the `AuthPolicy.request/2` action
+    case authorize(conn) do
+      {:ok, conn} ->
+        render(conn, callback_url: callback_url(conn),
+               changeset: User.changeset(%User{}))
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, reason)
+        |> redirect(to: "/")
+    end
+  end
 
-    authorize_changeset(conn, changeset) # you may optionally override the function to be executed on the policy module by passing a third argument. Example: :create
+  def request(conn, _params) do
+    conn
+    |> put_status(:not_found)
+    |> render(MyApp.ErrorView, "404.html")
+  end
+
+  def callback(%{ assigns: %{ ueberauth_failure: fails } } = conn, _) do
+    conn
+    |> put_flash(:error, "Failed to authenticate.")
+    |> redirect(to: "/")
+  end
+
+  def callback(conn, %{"provider" => "identity"}) do
+    # attempts to authorize user
+    # once authorized you can then access the user info with
+    # `Sentry.Authenticator.current_user/1`
+    # or check if logged in with `Sentry.Authenticator.logged_in?/1`
+    case attempt(conn) do
+      {:ok, conn} ->
+        conn
+        |> put_flash(:info, "You've successfully logged in")
+        |> redirect(to: "/")
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, reason)
+        |> redirect(to: request_path(conn))
+    end
+  end
+
+  def delete(conn, _params) do
+    conn
+    |> put_flash(:info, "You've been logged out!")
+    |> logout()
+    |> redirect(to: "/")
   end
 end
 ```
 
-the `authorize_changeset/2` macro basically does this
+or you can use it as a plug function or even cleaner module
 
 ```elixir
-case MyApp.PostPolicy.update(conn, changeset) do
-  false  -> raise Sentry.NotAuthorizedError
-  result -> result
+defmod MyApp.AuthController do
+  ...
+
+  plug :authorize_action when action in [:request]
+
+  def request(conn, _params) do
+    ...
+  end
+
+  def authorize_action (conn, _options) do
+    case authorize(conn) do
+      {:ok, conn} ->
+        conn
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, reason)
+        |> redirect(to: "/")
+    end
+  end
+end
+```
+
+```elixir
+# web/policies/auth_policy.ex
+
+defmodule MyApp.AuthPolicy do
+  use Sentry, :authenticator
+
+  def request(conn, options) do
+    # `logged_in?/1` is a helper function from
+    # `Sentry.Authenticator` that checks if a user is logged in
+    if logged_in?(conn) do
+      {:ok, conn}
+    else
+      {:error, "You're already logged in"}
+    end
+  end
+end
+```
+
+### Authorizing resource/changeset
+
+If you are working on resource/changeset, you might want to use the `Sentry.Authorizer.authorize_changeset/2` function as it will use a policy based on the model name
+you can also use `authorize_changeset/2` with plugs.
+
+```elixir
+# web/controllers/user_controller.ex
+
+defmodule PostController do
+  use Sentry, :authorizer
+
+  alias MyApp.Post
+
+  def update(conn, %{"id" => id, "post" => post_params}) do
+    changeset = Post.changeset(post, post_params)
+    # you can pass an optional third argument as an
+    # atom to override the function
+    # to be executed on the policy for example:
+    # authorize_changeset(conn, changeset, :belongs_to_current_user)
+    # this will instead run the
+    # `PostPolicy.belongs_to_current_user/2` action
+    authorize_changeset(conn, changeset)
+  end
 end
 ```
 
 ```elixir
 # web/policies/post_policy.ex
 
-defmodule MyApp.PostPolicy do
+defmodule PostPolicy do
   use Sentry, :authenticator
 
   def update(conn, changeset) do
-    current_user = current_user(conn) # here we use Sentry.Authenticator.current_user helper to get the current user in the session
+    ...
+  end
 
-    changeset.params.post["user_id"] === current_user.id # Only authorize when the post belongs to the current user
+  def belongs_to_current_user(conn,
+                          %Ecto.Changeset{params: %{user_id: user_id}}) do
+    if current_user(conn).id === user_id do
+      {:ok, conn}
+    else
+      {:error, "You're not authorized to edit this post}
+    end
   end
 end
 ```
-
-### Authorization without resource/changeset
-
-If you are not working on a changeset/resource you may opt to use the `Sentry.Authorizer.authorize/2` instead, the second optional argument can be used to pass data to the policy action.
-
-Do take note the `Sentry.Authorizer.authorize/2` will use the policy name based on the controller name.
-
-For example: an action on `UserController.create` will use `UserPolicy.create`
-
-```elixir
-# web/controllers/user_controller.ex
-
-defmodule UserController do
-  use Sentry, :authorizer
-
-  def create(conn, params) do
-    authorize(conn, params)
-  end
-end
-```
-
-```elixir
-# web/policies/user_policy.ex
-
-defmodule UserPolicy do
-  def create(conn, opts) do
-    true
-  end
-end
-```
-
-## Error Handling
-To handle the errors raised by `Sentry.Authorizer.authorize`, we can use something like [Plug.ErrorHandler](http://hexdocs.pm/plug/Plug.ErrorHandler.html). This can either be plugged at the router level or controller.
 
 ## License
 
