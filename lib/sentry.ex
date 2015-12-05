@@ -8,13 +8,12 @@ defmodule Sentry do
   def authenticator do
     quote do
       import Sentry.Authenticator
-      import Ueberauth.Strategy.Helpers
     end
   end
 
-  def view do
+  def model do
     quote do
-      import Sentry.Authenticator, only: [current_user: 1, logged_in?: 1]
+      import Sentry.Authenticator, only: [encrypt_password: 1]
     end
   end
 

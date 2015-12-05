@@ -1,32 +1,25 @@
 defmodule Sentry.Authorizer do
-  import Sentry.Helpers, only: [unsuffix: 2, suffix: 2]
+  alias Ecto.Changeset
+  alias Sentry.Exception
 
-  def authorize_changeset(conn, changeset, function \\ nil) do
-    policy   = policy_module(changeset.model.__struct__)
-    function = function || conn.private[:phoenix_action]
+  def authorize(conn, arg \\ nil, function \\ nil)
 
-    apply_policy!(policy, function, [conn, changeset])
+  def authorize(conn, module, [{function, args}]) do
+    apply_policy(module, function, List.flatten([conn, args]))
   end
 
-  def authorize_changeset!(conn, changeset, function \\ nil) do
-    policy   = policy_module(changeset.model.__struct__)
+  def authorize(conn, %Changeset{} = arg, function) do
+    policy   = policy_module(arg.model.__struct__)
     function = function || conn.private[:phoenix_action]
 
-    apply_policy!(policy, function, [conn, changeset])
+    apply_policy(policy, function, [conn, arg])
   end
 
-  def authorize(conn, opts \\ nil) do
+  def authorize(conn, arg, _function) do
     policy   = policy_module(conn.private[:phoenix_controller], "Controller")
     function = conn.private[:phoenix_action]
 
-    apply_policy(policy, function, [conn, opts])
-  end
-
-  def authorize!(conn, opts \\ nil) do
-    policy   = policy_module(conn.private[:phoenix_controller], "Controller")
-    function = conn.private[:phoenix_action]
-
-    apply_policy(policy, function, [conn, opts])
+    apply_policy(policy, function, [conn, arg])
   end
 
   defp apply_policy(module, function, args) do
@@ -35,32 +28,22 @@ defmodule Sentry.Authorizer do
     case apply(module, function, args) do
       {:ok, result}    -> {:ok, result}
       {:error, reason} -> {:error, reason}
-      _                -> raise Sentry.MatchError, module: module,
-                                                    function: function,
-                                                    arity: length(args)
-    end
-  end
-
-  defp apply_policy!(module, function, args) do
-    check_policy!(module)
-
-    case apply(module, function, args) do
-      {:ok, result}    -> result
-      {:error, reason} -> raise Sentry.NotAuthorizedError, reason: reason
-      _                -> raise Sentry.MatchError, module: module,
-                                                    function: function,
-                                                    arity: length(args)
+      _                -> raise Exception.MatchError, module: module,
+                                                      function: function,
+                                                      arity: length(args)
     end
   end
 
   defp check_policy!(policy) do
-    unless Code.ensure_loaded?(policy) do
-      raise Sentry.UndefinedPolicyError, policy: policy
+    if Code.ensure_loaded?(policy) do
+      policy
+    else
+      raise Exception.UndefinedPolicyError, policy: policy
     end
   end
 
   defp policy_module(module, suffix \\ "") do
-    module_parts = module |> Module.split
+    module_parts = Module.split(module)
 
     policy = module_parts
     |> List.last
@@ -70,5 +53,21 @@ defmodule Sentry.Authorizer do
     module_parts
     |> List.replace_at(length(module_parts) - 1, policy)
     |> Module.concat
+  end
+
+  @spec suffix(String.t, String.t) :: String.t
+  defp suffix(alias, suffix) do
+    alias <> suffix
+  end
+
+  @spec unsuffix(String.t, String.t) :: String.t
+  def unsuffix(value, suffix) do
+    string = to_string(value)
+    suffix_size = byte_size(suffix)
+    prefix_size = byte_size(string) - suffix_size
+    case string do
+      <<prefix::binary-size(prefix_size), ^suffix::binary>> -> prefix
+      _ -> string
+    end
   end
 end
