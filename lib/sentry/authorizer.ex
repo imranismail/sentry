@@ -5,7 +5,7 @@ defmodule Sentry.Authorizer do
   def authorize(conn, arg \\ nil, function \\ nil)
 
   def authorize(conn, module, [{function, args}]) do
-    apply_policy(module, function, List.flatten([conn, args]))
+    apply_policy(module, function, [conn, args])
   end
 
   def authorize(conn, %Changeset{} = arg, function) do
