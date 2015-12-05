@@ -32,7 +32,7 @@ defmodule Sentry.Authenticator do
   end
 
   defp validate_password(user, changeset) do
-    case Bcryot.checkpw(password(changeset), user.encrypted_password) do
+    case Bcrypt.checkpw(password(changeset), user.encrypted_password) do
       true  -> {:ok, user}
       _     -> {:error, Changeset.add_error(changeset,
                                             :password,
