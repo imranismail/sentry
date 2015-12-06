@@ -99,8 +99,8 @@ end
 ## Authorization
 For authorization, we have the following functions for dealing with it
 
-- `Authorizer.authorize/1`
-- `Authorizer.authorize/2`
+- `Authorizer.authorize/1` only on Phoenix
+- `Authorizer.authorize/2` only on Phoenix
 - `Authorizer.authorize/3`
 
 Let's say that we have an `index` action in `page_controller.ex` that we only allow users who are logged in to be able to access.
@@ -220,11 +220,12 @@ end
 
 ## Headless policy
 Sometimes you just want to authorize a couple of actions using the same policy again and again. In this case using a headless policy and a plug module might be more suitable.
-
 We can authorize the same policy by passing the policy module and action in the second and third argument.
 
+Also headless policy works without phoenix
+
 Let's create a plug to demonstrate
-```
+```elixir
 # web/plugs/ensure_authenticated.ex
 
 defmodule MyApp.EnsureAuthenticated do
@@ -253,7 +254,7 @@ end
 
 and the policy for the above plug
 
-```
+```elixir
 # web/policies/session_policy.ex
 
 defmodule MyApp.SessionPolicy do
@@ -269,7 +270,7 @@ end
 
 Now we can use the plug in multiple places. Let's rewrite our page controller to use this plug
 
-```
+```elixir
 # web/controller/page_controller.ex
 
 defmodule MyApp.PageController do
