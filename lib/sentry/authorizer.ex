@@ -10,14 +10,14 @@ defmodule Sentry.Authorizer do
 
   def authorize(conn, %Changeset{} = arg, function) do
     policy   = policy_module(arg.model.__struct__)
-    function = function || conn.private[:phoenix_action]
+    function = function || conn.private[:sentry_function]
 
     apply_policy(policy, function, [conn, arg])
   end
 
   def authorize(conn, arg, _function) do
-    policy   = policy_module(conn.private[:phoenix_controller], "Controller")
-    function = conn.private[:phoenix_action]
+    policy   = policy_module(conn.private[:sentry_module], "Controller")
+    function = conn.private[:sentry_function]
 
     apply_policy(policy, function, [conn, arg])
   end
