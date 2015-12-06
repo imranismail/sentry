@@ -2,6 +2,20 @@
 # and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
 
+config :sentry, Sentry.Repo,
+  adapter: Ecto.Adapters.Postgres,
+  database: "sentry_repo",
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  pool: Ecto.Adapters.SQL.Sandbox
+
+config :sentry, Sentry,
+  repo: Sentry.Repo,
+  model: Sentry.User,
+  uid_field: :email,
+  password_field: :password
+
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this
 # file won't be loaded nor affect the parent project. For this reason,
