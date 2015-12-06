@@ -4,26 +4,17 @@
 
 ## TODOs
 - Generators
-- JWT
 
 ## Installation
 Add sentry to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
-  [{:sentry, "~> 0.2"}]
+  [{:sentry, "~> 0.3"}]
 end
 ```
 
-Ensure sentry is started before your application:
-
-```elixir
-def application do
-  [applications: [:sentry]]
-end
-```
-
-Ensure your `User` model and `users` table has the following fields:
+For authentication, ensure your `User` model and `users` table has the following fields:
   - `:encrypted_password` field
   - a user identification field. Defaults to `email`
   - and a virtual password field. Defaults to `password`
@@ -45,19 +36,10 @@ defmodule MyApp.User do
 end
 ```
 
-Configure Ueberauth and Sentry in `config/config.exs`
+Configure Sentry
 ```elixir
 # config/config.exs
 
-# Ueberauth
-config :ueberauth, Ueberauth,
-  providers: [
-    identity: {Ueberauth.Strategy.Identity, [
-      callback_methods: ["POST"]
-    ]}
-  ]
-
-# Sentry
 config :sentry, Sentry,
   repo: MyApp.Repo,
   model: MyApp.User # you may use a different model as you like
@@ -66,214 +48,104 @@ config :sentry, Sentry,
 ```
 
 ## Authentication
-Sentry leverages [ueberauth](https://github.com/ueberauth/ueberauth) for the authentication layer with an addition of bcrypt encryption when storing and authenticating user.
-
 Sentry provides useful helpers for working with users on your system
 
-- `Sentry.Authenticator.attempt/1`
-- `Sentry.Authenticator.logout/1`
-- `Sentry.Authenticator.encrypt_password/1`
-- `Sentry.Authenticator.logged_in?/1`
-- `Sentry.Authenticator.current_user/1`
+- `Authenticator.encrypt_password/1`
+- `Authenticator.attempt/1`
 
-here's an example use case
+### Authenticator.encrypt_password/1
+Is used to encrypt the password field and add it to the changeset as 'encrypted_password'. Here's an example of a user creation
 
 ```elixir
-# web/controllers/auth_controller.ex
+def create_user(conn, %{"user" => user_params}) do
+  changeset = User.changeset(%User{}, user_params)
+  |> Authenticator.encrypt_password
 
-defmodule MyApp.AuthController do
-  use MyApp.Web, :controller
-  use Sentry, :authenticator
-
-  alias MyApp.User
-
-  def request(conn, %{"provider" => "identity"} = _params) do
-    render(conn, callback_url: callback_url(conn),
-      changeset: User.changeset(%User{}))
-  end
-
-  def request(conn, _params) do
-    conn
-    |> put_status(:not_found)
-    |> render(MyApp.ErrorView, "404.html")
-  end
-
-  def callback(%{ assigns: %{ ueberauth_failure: fails } } = conn, _) do
-    conn
-    |> put_flash(:error, "Failed to authenticate.")
-    |> redirect(to: "/")
-  end
-
-  def callback(conn, %{"provider" => "identity"}) do
-    # attempts to authorize user
-    # once authorized you can then access the user info with
-    # `Sentry.Authenticator.current_user/1`
-    # or check if logged in with `Sentry.Authenticator.logged_in?/1`
-    case attempt(conn) do
-      {:ok, conn} ->
-        conn
-        |> put_flash(:info, "You've successfully logged in")
-        |> redirect(to: "/")
-      {:error, reason} ->
-        conn
-        |> put_flash(:error, reason)
-        |> redirect(to: request_path(conn))
-    end
-  end
-
-  def delete(conn, _params) do
-    conn
-    |> put_flash(:info, "You've been logged out!")
-    |> logout()
-    |> redirect(to: "/")
+  case Repo.insert(changeset) do
+    {:ok, new_user} ->
+      conn
+      |> put_flash(:info, "You've successfully registered")
+      |> Guardian.Plug.sign_in(new_user, :token)
+      |> redirect(to: "/")
+    {:error, changeset} ->
+      render(conn, "register.html", changeset: changeset)
   end
 end
 ```
 
+### Authenticator.attempt/1
+Is used to attempt an authentication on a resource as specified in `config.exs`. In this example we used [guardian](https://github.com/hassox/guardian) to store the resource session using JWT. You can also just use `put_session`.
+
 ```elixir
-# web/router.ex
+# web/controllers/session_controller.ex
 
-defmodule MyApp.Router do
-  ...
-  pipeline :auth do
-    plug Ueberauth
-  end
-
-  scope "/auth", MyApp do
-    pipe_through [:browser, :auth]
-
-    get "/logout", AuthController, :delete
-    get "/:provider", AuthController, :request
-    get "/:provider/callback", AuthController, :callback
-    post "/:provider/callback", AuthController, :callback
+# Authenticator accepts the user params and tries to authenticate
+# returning {:ok, authenticated_user} or {:error, changeset}
+# you can then use the changeset to show authentication errors
+def log_user_in(conn, %{"user" => user_params}) do
+  case Sentry.Authenticator.attempt(user_params) do
+    {:ok, user} ->
+      conn
+      |> put_flash(:info, "You've successfully logged in")
+      |> Guardian.Plug.sign_in(user, :token)
+      |> redirect(to: "/")
+    {:error, changeset} ->
+      conn
+      |> render("login.html", changeset: changeset)
   end
 end
-```
-
-```elixir
-# web/view/layout_view.ex
-defmodule MyApp.LayoutView do
-  use MyApp.Web, :view
-  # this adds the logged_in?/1 and current_user/1 helper to the view
-  use Sentry, :view
-end
-```
-
-```elixir
-# web/templates/auth/request.html.eex
-
-<%= form_for @changeset, @callback_url, fn f -> %>
-  <%= if f.errors != [] do %>
-    <div class="alert alert-danger">
-      <p>Oops, something went wrong! Please check the errors below:</p>
-      <ul>
-        <%= for {attr, message} <- f.errors do %>
-          <li><%= humanize(attr) %> <%= message %></li>
-        <% end %>
-      </ul>
-    </div>
-  <% end %>
-
-  <div class="form-group">
-    <label>Email</label>
-    <%= text_input f, :email, class: "form-control" %>
-  </div>
-
-  <div class="form-group">
-    <label>Password</label>
-    <%= password_input f, :password, class: "form-control" %>
-  </div>
-
-  <div class="form-group">
-    <%= submit "Login", class: "btn btn-primary" %>
-  </div>
-<% end %>
 ```
 
 ## Authorization
 For authorization, we have the following functions for dealing with it
 
-- `Sentry.Authorizer.authorize/2`
-- `Sentry.Authorizer.authorize_changeset/3`
-- `Sentry.Authorizer.authorize!/2`
-- `Sentry.Authorizer.authorize_changeset!/3`
+- `Authorizer.authorize/1`
+- `Authorizer.authorize/2`
+- `Authorizer.authorize/3`
 
-The bang functions follows Elixir's [convention](http://elixir-lang.org/getting-started/try-catch-and-rescue.html#errors) of throwing exceptions and returning values instead of returning tuples like {:ok, result} or {:error, reason}
+Let's say that we have an `index` action in `page_controller.ex` that we only allow users who are logged in to be able to access.
+
+There's a few way to do this. One is just as a normal `authorize/1` function
 
 ```elixir
-# web/controllers/auth_controller.ex
+# web/controllers/page_controller.ex
 
-defmodule MyApp.AuthController do
-  use MyApp.Web, :controller
-  use Sentry, :authenticator
+defmodule MyApp.PageController do
+  use Sentry, :authorizer # Make sure this line is included
 
-  alias MyApp.User
-
-  def request(conn, %{"provider" => "identity"} = _params) do
-    # you may pass an optional second parameter as
-    # a data that is then accessable on the `AuthPolicy.request/2` action
+  def index(conn, _params) do
+    # you can optionally pass a second argument
+    # to be used in the policy example: authorize(conn, params)
     case authorize(conn) do
       {:ok, conn} ->
-        render(conn, callback_url: callback_url(conn),
-               changeset: User.changeset(%User{}))
+        render(conn, "index.html")
       {:error, reason} ->
         conn
         |> put_flash(:error, reason)
         |> redirect(to: "/")
     end
-  end
-
-  def request(conn, _params) do
-    conn
-    |> put_status(:not_found)
-    |> render(MyApp.ErrorView, "404.html")
-  end
-
-  def callback(%{ assigns: %{ ueberauth_failure: fails } } = conn, _) do
-    conn
-    |> put_flash(:error, "Failed to authenticate.")
-    |> redirect(to: "/")
-  end
-
-  def callback(conn, %{"provider" => "identity"}) do
-    # attempts to authorize user
-    # once authorized you can then access the user info with
-    # `Sentry.Authenticator.current_user/1`
-    # or check if logged in with `Sentry.Authenticator.logged_in?/1`
-    case attempt(conn) do
-      {:ok, conn} ->
-        conn
-        |> put_flash(:info, "You've successfully logged in")
-        |> redirect(to: "/")
-      {:error, reason} ->
-        conn
-        |> put_flash(:error, reason)
-        |> redirect(to: request_path(conn))
-    end
-  end
-
-  def delete(conn, _params) do
-    conn
-    |> put_flash(:info, "You've been logged out!")
-    |> logout()
-    |> redirect(to: "/")
   end
 end
 ```
 
-or you can use it as a plug function or even cleaner module
+Or you can use it as a plug function in Phoenix controllers
 
 ```elixir
-defmod MyApp.AuthController do
+# web/controllers/page_controller.ex
+
+defmodule MyApp.PageController do
   ...
+  use Sentry, :authorizer # Make sure this line is included
 
-  plug :authorize_action when action in [:request]
+  plug :authorize_action when action in [:index]
 
-  def request(conn, _params) do
+  def index(conn, _params) do
     ...
   end
 
-  def authorize_action (conn, _options) do
+  def authorize_action(conn, _options) do
+    # you can optionally pass a second argument
+    # to be used in the policy example: authorize(conn, options)
     case authorize(conn) do
       {:ok, conn} ->
         conn
@@ -286,16 +158,23 @@ defmod MyApp.AuthController do
 end
 ```
 
+This will invoke a policy action based on the module name and action name, in the above example `authorize/1` will invoke the `SessionPolicy.index` which must return a tuple of `{:ok, conn} | {:error, reason}`
+
+Let's write a policy for the `PageController.index/2` action
+
 ```elixir
-# web/policies/auth_policy.ex
+# web/policies/page_policy.ex
 
-defmodule MyApp.AuthPolicy do
-  use Sentry, :authenticator
+defmodule MyApp.PagePolicy do
+  # the `option` argument is supplied if we use `authorize/2`
+  # if not it will be `nil`
 
-  def request(conn, options) do
-    # `logged_in?/1` is a helper function from
-    # `Sentry.Authenticator` that checks if a user is logged in
-    if logged_in?(conn) do
+  def index(conn, _option) do
+    # Let's return {:ok, conn} if the user is logged in
+    # Otherwise return {:error, reason} if user is not logged in
+    # Let's assume that we have a `:current_user` stored in the session
+    # if the user is logged in
+    if !!get_session(conn, :current_user) do
       {:ok, conn}
     else
       {:error, "You're already logged in"}
@@ -306,29 +185,26 @@ end
 
 ### Authorizing resource/changeset
 
-If you are working on resource/changeset, you might want to use the `Sentry.Authorizer.authorize_changeset/2` function as it will use a policy based on the model name
-you can also use `authorize_changeset/2` with plugs.
+If you are working on resource/changeset, sentry is clever enough to use a policy named after the resource instead of the module it is authorizing, the function name however will use the action it is authorizing. Do take note that the function name is overridable if we pass a third argument.
+
+Example:
 
 ```elixir
-# web/controllers/user_controller.ex
-
-defmodule PostController do
-  use Sentry, :authorizer
-
-  alias MyApp.Post
-
   def update(conn, %{"id" => id, "post" => post_params}) do
+    ...
     changeset = Post.changeset(post, post_params)
     # you can pass an optional third argument as an
     # atom to override the function
     # to be executed on the policy for example:
-    # authorize_changeset(conn, changeset, :belongs_to_current_user)
+    # authorize(conn, changeset, :belongs_to_current_user)
     # this will instead run the
     # `PostPolicy.belongs_to_current_user/2` action
-    authorize_changeset(conn, changeset)
+    authorize(conn, changeset)
+    ...
   end
-end
 ```
+
+Which in turn will use a policy named after the model. In this case the `Post` model will use the `PostPolicy` policy
 
 ```elixir
 # web/policies/post_policy.ex
@@ -339,17 +215,73 @@ defmodule PostPolicy do
   def update(conn, changeset) do
     ...
   end
+end
+```
 
-  def belongs_to_current_user(conn,
-                          %Ecto.Changeset{params: %{user_id: user_id}}) do
-    if current_user(conn).id === user_id do
-      {:ok, conn}
-    else
-      {:error, "You're not authorized to edit this post}
+## Headless policy
+Sometimes you just want to authorize a couple of actions using the same policy again and again. In this case using a headless policy and a plug module might be more suitable.
+
+We can authorize the same policy by passing the policy module and action in the second and third argument.
+
+Let's create a plug to demonstrate
+```
+# web/plugs/ensure_authenticated.ex
+
+defmodule MyApp.EnsureAuthenticated do
+  @behaviour Plug
+
+  import Sentry.Authorizer, only: [authorize: 3] # we don't use `use` in this case.
+  import Phoenix.Controller
+
+  def init(opts) do
+    opts
+  end
+
+  def call(conn, opts) do
+    # authorize(conn, policy, function_name: [arguments])
+    case authorize(conn, MyApp.SessionPolicy, authenticated: opts) do
+      {:ok, conn} ->
+        conn
+      {:error, reason} ->
+        conn
+        |> put_flash(:error, reason)
+        |> redirect(to: "/login")
     end
   end
 end
 ```
+
+and the policy for the above plug
+
+```
+# web/policies/session_policy.ex
+
+defmodule MyApp.SessionPolicy do
+  def authenticated(conn, opts) do
+    if !!current_resource(conn) do
+      {:ok, conn}
+    else
+      {:error, "You're not signed in"}
+    end
+  end
+end
+```
+
+Now we can use the plug in multiple places. Let's rewrite our page controller to use this plug
+
+```
+# web/controller/page_controller.ex
+
+defmodule MyApp.PageController do
+  ...
+  plug MyApp.EnsureAuthenticated
+
+  def index(conn, _params) do
+   render(conn, "index.html")
+  end
+end
+```
+
 
 ## License
 
