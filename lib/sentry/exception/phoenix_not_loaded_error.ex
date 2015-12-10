@@ -1,4 +1,5 @@
 defmodule Sentry.Exception.PhoenixNotLoadedError do
-  defexception plug_status: 500, message: "this authorize function is only available to phoenix controllers. " <>
-  "please use authorize(conn, policy, action_name: [arguments]) instead."
+  defexception plug_status: 500, message: "you tried to use " <>
+      "Sentry.Authorizer, but Phoenix module is not loaded. " <>
+      "please add phoenix to your dependencies."
 end

@@ -1,6 +1,6 @@
-defmodule Sentry.AuthenticatorTest do
+defmodule Sentry.AuthTest do
   use Sentry.Case
-  import Sentry.Authenticator
+  import Sentry.Auth, only: [encrypt_password: 1, attempt: 1]
 
   setup do
     user_params = %{"email" => "imran.codely@gmail.com", "password" => "password"}
@@ -31,9 +31,7 @@ defmodule Sentry.AuthenticatorTest do
     |> encrypt_password
     |> Repo.insert
 
-    invalid_params = %{context[:user_params]|
-                        "password" => "invalidpassword"
-                      }
+    invalid_params = %{context[:user_params] | "password" => "invalidpassword"}
     assert {:error, %Ecto.Changeset{}} = attempt(invalid_params)
 
     valid_params = context[:user_params]
