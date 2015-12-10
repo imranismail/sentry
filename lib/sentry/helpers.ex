@@ -1,33 +1,36 @@
 defmodule Sentry.Helpers do
+  import Sentry.Options, only: [uid_field: 0, password_field: 0]
+
   alias Ecto.Changeset
-  alias Sentry.Helpers
-  alias Sentry.Options
+  alias Sentry.Exception
 
-  def uid_from(%Ecto.Changeset{} = changeset), do: Changeset.get_change(changeset, Options.uid_field)
+  def uid_from(%Changeset{} = changeset) do
+    Changeset.get_change(changeset, uid_field)
+  end
 
-  def password_from(%Ecto.Changeset{} = changeset), do: Changeset.get_change(changeset, Options.password_field)
-
-  def apply_policy(module, function, args) do
-    Helpers.verify_policy!(module)
-
-    case apply(module, function, args) do
-      {:ok, result}    -> {:ok, result}
-      {:error, reason} -> {:error, reason}
-      _                -> raise Exception.MatchError, module: module,
-                                                      function: function,
-                                                      arity: length(args)
-    end
+  def password_from(%Changeset{} = changeset) do
+    Changeset.get_change(changeset, password_field)
   end
 
   def verify_policy!(policy) do
-    unless Code.ensure_loaded?(policy) do
+    if Code.ensure_loaded?(policy) do
+      policy
+    else
       raise Exception.UndefinedPolicyError, policy: policy
     end
   end
 
-  def verify_phoenix_controller!(conn) do
-    unless Code.ensure_loaded?(Phoenix) && Map.has_key?(conn.private, :phoenix_controller) do
+  def verify_phoenix_deps! do
+    unless Code.ensure_loaded?(Phoenix) do
       raise Exception.PhoenixNotLoadedError
+    end
+  end
+
+  def fetch_private!(conn, key) do
+    if !!conn.private[key] do
+      conn.private[key]
+    else
+      raise Exception.PrivateKeyNotLoadedError, key: key
     end
   end
 
@@ -35,21 +38,25 @@ defmodule Sentry.Helpers do
     module_parts = Module.split(module)
 
     policy = module_parts
-    |> List.last
-    |> unsuffix(suffix)
-    |> suffix("Policy")
+             |> List.last
+             |> unsuffix(suffix)
+             |> suffix("Policy")
 
     module_parts
     |> List.replace_at(length(module_parts) - 1, policy)
     |> Module.concat
   end
 
-  @spec suffix(String.t, String.t) :: String.t
+  def apply_policy(policy, function, args) do
+    policy
+    |> verify_policy!
+    |> apply(function, args)
+  end
+
   def suffix(alias, suffix) do
     alias <> suffix
   end
 
-  @spec unsuffix(String.t, String.t) :: String.t
   def unsuffix(value, suffix) do
     string = to_string(value)
     suffix_size = byte_size(suffix)
