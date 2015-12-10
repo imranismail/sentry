@@ -48,22 +48,22 @@ defmodule Sentry.Auth do
   def authorize(conn, args) when is_list(args), do: authorize(conn, nil, args)
   def authorize(conn, resource) when is_map(resource), do: authorize(conn, nil, resource)
 
-  def authorize(conn, function \\ nil, args \\ [])
-  def authorize(conn, function, %Ecto.Changeset{} = changeset) do
-    function = function || fetch_private!(conn, :phoenix_action)
+  def authorize(conn, action \\ nil, args \\ [])
+  def authorize(conn, action, %Ecto.Changeset{} = changeset) do
+    action = action || fetch_private!(conn, :phoenix_action)
     policy_module(changeset.model.__struct__)
-    |> apply_policy(function, [conn, changeset])
+    |> apply_policy(action, [conn, changeset])
   end
-  def authorize(conn, function, args) when is_list(args) do
-    function = function || fetch_private!(conn, :phoenix_action)
+  def authorize(conn, action, args) when is_list(args) do
+    action = action || fetch_private!(conn, :phoenix_action)
     conn
     |> fetch_private!(:phoenix_controller)
     |> policy_module("Controller")
-    |> apply_policy(function, [conn] ++ args)
+    |> apply_policy(action, [conn] ++ args)
   end
-  def authorize(conn, function, model) when is_map(model) do
-    function = function || fetch_private!(conn, :phoenix_action)
+  def authorize(conn, action, model) when is_map(model) do
+    action = action || fetch_private!(conn, :phoenix_action)
     policy_module(model.__struct__)
-    |> apply_policy(function, [conn, model])
+    |> apply_policy(action, [conn, model])
   end
 end
