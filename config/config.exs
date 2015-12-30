@@ -2,9 +2,11 @@
 # and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
 
+config :logger, level: :warn
+
 config :sentry, Sentry.Repo,
   adapter: Ecto.Adapters.Postgres,
-  database: "sentry_repo",
+  database: "sentry_test",
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
@@ -12,9 +14,7 @@ config :sentry, Sentry.Repo,
 
 config :sentry, Sentry,
   repo: Sentry.Repo,
-  model: Sentry.User,
-  uid_field: :email,
-  password_field: :password
+  model: Sentry.User
 
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this
