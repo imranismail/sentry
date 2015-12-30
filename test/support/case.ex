@@ -16,8 +16,6 @@ defmodule Sentry.Case do
 
   using do
     quote do
-      alias Sentry.Repo
-      alias Sentry.User
       import Ecto.Model
       import Ecto.Query, only: [from: 2]
       import Ecto.Changeset

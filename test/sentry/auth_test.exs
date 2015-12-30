@@ -1,40 +1,60 @@
 defmodule Sentry.AuthTest do
   use Sentry.Case
-  import Sentry.Auth, only: [encrypt_password: 1, attempt: 1]
 
-  setup do
-    user_params = %{"email" => "imran.codely@gmail.com", "password" => "password"}
-    {:ok, user_params: user_params}
-  end
+  alias Sentry.Auth
+  alias Sentry.User
+  alias Sentry.Repo
+
+  @valid_attrs %{email: "foo@example.com",
+                 password: "password",
+                 password_confirmation: "password"}
 
   test "verify configuration" do
-    config = [
-      repo: Sentry.Repo,
-      model: Sentry.User,
-      uid_field: :email,
-      password_field: :password
-    ]
-
+    config = [repo: Sentry.Repo, model: Sentry.User]
     assert Application.get_env(:sentry, Sentry) == config
   end
 
-  test "encrypt password", context do
-    changeset = User.changeset(%User{}, context[:user_params])
-    assert changeset.valid?
-
-    changeset = changeset |> encrypt_password
-    assert !!get_change(changeset, :encrypted_password) == true
+  test "user insertion should encrypt password" do
+    assert {:ok, user} =
+      %User{}
+      |> User.changeset(@valid_attrs)
+      |> Auth.encrypt_changes(:password, :encrypted_password)
+      |> Repo.insert
+    assert user.encrypted_password !== user.password
   end
 
-  test "authenticate user", context do
-    User.changeset(%User{}, context[:user_params])
-    |> encrypt_password
-    |> Repo.insert
+  test "attempt with valid password" do
+    assert {:ok, _user} =
+      %User{}
+      |> User.changeset(@valid_attrs)
+      |> Auth.encrypt_changes(:password, :encrypted_password)
+      |> Repo.insert
+    assert {:ok, %User{}} = Auth.attempt(@valid_attrs)
+  end
 
-    invalid_params = %{context[:user_params] | "password" => "invalidpassword"}
-    assert {:error, %Ecto.Changeset{}} = attempt(invalid_params)
+  test "attempt with invalid password" do
+    assert {:ok, _user} =
+      %User{}
+      |> User.changeset(@valid_attrs)
+      |> Auth.encrypt_changes(:password, :encrypted_password)
+      |> Repo.insert
+    invalid_attrs = %{@valid_attrs | password: "thisisnotavalidpassword"}
+    assert @valid_attrs.password !== invalid_attrs.password
+    assert {:error, changeset} = Auth.attempt(invalid_attrs)
+    assert {:password,
+            "no matching password found"}
+           in changeset.errors
+  end
 
-    valid_params = context[:user_params]
-    assert {:ok, %User{}} = attempt(valid_params)
+  test "attempt with invalid email" do
+    assert {:ok, _user} =
+      %User{}
+      |> User.changeset(@valid_attrs)
+      |> Auth.encrypt_changes(:password, :encrypted_password)
+      |> Repo.insert
+    invalid_attrs = %{@valid_attrs | email: "bar@example.com"}
+    assert invalid_attrs.email !== @valid_attrs.email
+    assert {:error, changeset} = Auth.attempt(invalid_attrs)
+    assert {:email, "can't find user with that email"} in changeset.errors
   end
 end
