@@ -5,6 +5,8 @@ defmodule Sentry do
     verify_phoenix_deps!
 
     quote do
+      alias Sentry.Auth
+
       def confirmed?(user) do
         if user, do: !!user.confirmed_at
       end
