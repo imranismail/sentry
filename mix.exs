@@ -7,24 +7,23 @@ defmodule Sentry.Mixfile do
       version: "0.3.2",
       elixir: "~> 1.1",
       elixirc_paths: elixirc_paths(Mix.env),
+      compilers: compilers(Mix.env),
       build_embedded: Mix.env == :prod,
       start_permanent: Mix.env == :prod,
       description: description,
       package: package,
-      deps: deps
+      deps: deps(Mix.env)
     ]
   end
+
+  defp compilers(:test), do: [:phoenix] ++ Mix.compilers
+  defp compilers(_), do: Mix.compilers
 
   # Configuration for the OTP application
   #
   # Type "mix help compile.app" for more information
   def application do
-    case Mix.env do
-      :test ->
-        [applications: [:logger, :ecto, :comeonin, :postgrex]]
-      _     ->
-        [applications: [:logger, :ecto, :comeonin]]
-    end
+    [applications: [:logger, :comeonin]]
   end
 
   # Specifies which paths to compile per environment.
@@ -55,19 +54,22 @@ defmodule Sentry.Mixfile do
   #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
   #
   # Type "mix help deps" for more examples and options
-  defp deps do
-    case Mix.env do
-      :test ->
-        [
-          {:comeonin, "~> 1.0"},
-          {:ecto, "~> 1.0"},
-          {:postgrex, ">= 0.0.0"}
-        ]
-      _ ->
-        [
-          {:comeonin, "~> 1.0"},
-          {:ecto, "~> 1.0"},
-        ]
-    end
+  defp deps(:test) do
+    [
+      {:comeonin, "~> 1.0"},
+      {:phoenix, "~> 1.0.3"},
+      {:phoenix_ecto, "~> 1.1"},
+      {:postgrex, ">= 0.0.0"},
+      {:phoenix_html, "~> 2.1"},
+      {:cowboy, "~> 1.0"},
+    ]
+  end
+
+  defp deps(_) do
+    [
+      {:comeonin, "~> 1.0"},
+      {:phoenix_ecto, "~> 1.1"},
+      {:phoenix, "~> 1.0.3"}
+    ]
   end
 end
