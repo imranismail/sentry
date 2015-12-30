@@ -1,16 +1,7 @@
 defmodule Sentry.Helpers do
-  import Sentry.Options, only: [uid_field: 0, password_field: 0]
+  import Phoenix.Naming, only: [unsuffix: 2]
 
-  alias Ecto.Changeset
   alias Sentry.Exception
-
-  def uid_from(%Changeset{} = changeset) do
-    Changeset.get_change(changeset, uid_field)
-  end
-
-  def password_from(%Changeset{} = changeset) do
-    Changeset.get_change(changeset, password_field)
-  end
 
   def verify_policy!(policy) do
     if Code.ensure_loaded?(policy) do
@@ -37,10 +28,11 @@ defmodule Sentry.Helpers do
   def policy_module(module, suffix \\ "") do
     module_parts = Module.split(module)
 
-    policy = module_parts
-             |> List.last
-             |> unsuffix(suffix)
-             |> suffix("Policy")
+    policy =
+      module_parts
+      |> List.last
+      |> unsuffix(suffix)
+      |> suffix("Policy")
 
     module_parts
     |> List.replace_at(length(module_parts) - 1, policy)
@@ -55,15 +47,5 @@ defmodule Sentry.Helpers do
 
   def suffix(alias, suffix) do
     alias <> suffix
-  end
-
-  def unsuffix(value, suffix) do
-    string = to_string(value)
-    suffix_size = byte_size(suffix)
-    prefix_size = byte_size(string) - suffix_size
-    case string do
-      <<prefix::binary-size(prefix_size), ^suffix::binary>> -> prefix
-      _ -> string
-    end
   end
 end
