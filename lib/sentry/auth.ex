@@ -1,42 +1,33 @@
 defmodule Sentry.Auth do
-  import Ecto.Changeset, only: [put_change: 3, cast: 4, add_error: 3]
+  import Ecto.Changeset, only: [cast: 4, add_error: 3, put_change: 3, change: 2]
   import Comeonin.Bcrypt, only: [checkpw: 2, hashpwsalt: 1]
   import Sentry.Options
   import Sentry.Helpers
 
   # Authenticator
-  def attempt(params) do
-    changeset = changeset(params)
+  def attempt(user_params, user \\ nil) do
+    changeset = authentication_changeset(user_params)
     if changeset.valid? do
-      repo.get_by(model, [{uid_field, uid_from(changeset)}])
-      |> validate_password(changeset)
+      user = user || repo.get_by(model, [{authentication_key,
+                                          changeset.changes[authentication_key]}])
+      validate_password(user, changeset)
     else
       {:error, changeset}
     end
   end
 
-  def encrypt_password(changeset) do
-    if changeset.valid? do
-      put_change(changeset,
-                 :encrypted_password,
-                 hashpwsalt(changeset.params["#{password_field}"]))
-    else
-      changeset
-    end
-  end
-
-  defp changeset(params) do
-    struct(model)
-    |> cast(params, ["#{uid_field}", "#{password_field}"], [])
+  defp authentication_changeset(user_params) do
+    model.__struct__
+    |> cast(user_params, [authentication_key, :password], [])
   end
 
   defp validate_password(nil, changeset) do
     {:error, add_error(changeset,
-                       :email,
-                       "can't find user with that email address")}
+                       authentication_key,
+                       "can't find user with that #{authentication_key}")}
   end
   defp validate_password(user, changeset) do
-    case checkpw(password_from(changeset), user.encrypted_password) do
+    case checkpw(changeset.changes.password, user.encrypted_password) do
       true  -> {:ok, user}
       _     -> {:error, add_error(changeset,
                                   :password,
@@ -51,7 +42,8 @@ defmodule Sentry.Auth do
   def authorize(conn, action \\ nil, args \\ [])
   def authorize(conn, action, %Ecto.Changeset{} = changeset) do
     action = action || fetch_private!(conn, :phoenix_action)
-    policy_module(changeset.model.__struct__)
+    changeset.model.__struct__
+    |> policy_module
     |> apply_policy(action, [conn, changeset])
   end
   def authorize(conn, action, args) when is_list(args) do
@@ -61,9 +53,29 @@ defmodule Sentry.Auth do
     |> policy_module("Controller")
     |> apply_policy(action, [conn] ++ args)
   end
-  def authorize(conn, action, model) when is_map(model) do
+  def authorize(conn, action, resource) when is_map(resource) do
     action = action || fetch_private!(conn, :phoenix_action)
-    policy_module(model.__struct__)
-    |> apply_policy(action, [conn, model])
+    resource.__struct__
+    |> policy_module
+    |> apply_policy(action, [conn, resource])
+  end
+
+  # Encryption
+  def encrypt_changes(changeset, from) do
+    change_to_encrypt = changeset.changes[from]
+    if change_to_encrypt do
+      put_change(changeset, from, hashpwsalt(change_to_encrypt))
+    else
+      changeset
+    end
+  end
+
+  def encrypt_changes(changeset, from, to) do
+    change_to_encrypt = changeset.changes[from]
+    if change_to_encrypt do
+      put_change(changeset, to, hashpwsalt(change_to_encrypt))
+    else
+      changeset
+    end
   end
 end
