@@ -1,19 +1,33 @@
 defmodule Sentry do
-  import Sentry.Helpers
+  import Sentry.Helpers, only: [verify_phoenix_deps!: 0]
+  import Sentry.Auth
 
-  def model do
+  def init(opts) do
     verify_phoenix_deps!
-
-    quote do
-      alias Sentry.Auth
-
-      def confirmed?(user) do
-        if user, do: !!user.confirmed_at
-      end
-    end
+    opts
   end
 
-  defmacro __using__(which) when is_atom(which) do
-    apply(__MODULE__, which, [])
+  def call(conn, [policy: policy, action: action, args: args]) do
+    apply(policy, action, [conn] ++ args)
+  end
+
+  def call(conn, [policy: policy, action: action]) do
+    apply(policy, action, [conn])
+  end
+
+  def call(conn, [action: action, args: args]) do
+    authorize(conn, action, args)
+  end
+
+  def call(conn, [action: action]) do
+    authorize(conn, action)
+  end
+
+  def call(conn, [args: args]) do
+    authorize(conn, args)
+  end
+
+  def call(conn, _opts) do
+    authorize(conn)
   end
 end
