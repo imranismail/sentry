@@ -1,4 +1,4 @@
-defmodule Sentry.Auth do
+defmodule Sentry.Authorizer do
   import Sentry.Helpers
 
   # Authorizer

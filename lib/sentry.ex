@@ -1,6 +1,6 @@
 defmodule Sentry do
   import Sentry.Helpers, only: [verify_phoenix_deps!: 0]
-  import Sentry.Auth
+  import Sentry.Authorizer
 
   def init(opts) do
     verify_phoenix_deps!
