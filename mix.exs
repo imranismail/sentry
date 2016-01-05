@@ -54,20 +54,8 @@ defmodule Sentry.Mixfile do
   #   {:mydep, git: "https://github.com/elixir-lang/mydep.git", tag: "0.1.0"}
   #
   # Type "mix help deps" for more examples and options
-  defp deps(:test) do
-    [
-      {:comeonin, "~> 1.0"},
-      {:phoenix, "~> 1.0.3"},
-      {:phoenix_ecto, "~> 1.1"},
-      {:postgrex, ">= 0.0.0"},
-      {:phoenix_html, "~> 2.1"},
-      {:cowboy, "~> 1.0"},
-    ]
-  end
-
   defp deps(_) do
     [
-      {:comeonin, "~> 1.0"},
       {:phoenix_ecto, "~> 2.0"},
       {:phoenix, "~> 1.1"}
     ]
