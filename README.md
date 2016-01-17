@@ -2,7 +2,7 @@
 
 "Sentry provides a set of helpers and conventions that will guide you in leveraging Elixir modules to build a simple, robust authorization system." - Inspired by [elabs/pundit](https://github.com/elabs/pundit)
 
-**This code is still a proof of concept** as it is. I am making sure that once it nears 1.0 I'll make sure things are in order and stabilized
+**This code is still a proof of concept** as it is. I am making sure that once it nears 1.0 I'll make sure things are in order and stabilized, for now setting up authorization with Plug is fairly easy, I'm thinking of ways to make it even easier by utilizing the private fields in phoenix conn struct.
 
 ## TODOs
 - Generators
