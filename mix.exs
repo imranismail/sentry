@@ -57,7 +57,8 @@ defmodule Sentry.Mixfile do
   defp deps(_) do
     [
       {:phoenix_ecto, "~> 2.0"},
-      {:phoenix, "~> 1.1"}
+      {:phoenix, "~> 1.1"},
+      {:comeonin, "~> 2.0"},
     ]
   end
 end
