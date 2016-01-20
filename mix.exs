@@ -59,6 +59,8 @@ defmodule Sentry.Mixfile do
       {:phoenix_ecto, "~> 2.0"},
       {:phoenix, "~> 1.1"},
       {:comeonin, "~> 2.0"},
+      {:ex_spec, "~> 1.0", only: :test},
+      {:mix_test_watch, "~> 0.2", only: :dev},
     ]
   end
 end
