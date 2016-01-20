@@ -1,5 +1,5 @@
 defmodule SentryTest do
-  use ExUnit.Case
+  use ExSpec
   doctest Sentry
 
   test "this should pass" do
