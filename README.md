@@ -29,7 +29,7 @@ end
 
 ## Gotchas
 
-`mix test.watch` command leaves some erlang zombie processes, I kill them with  `ps -ef|grep erlang|awk '{print $2}'|xargs kill` after some time, just be careful not to kill any other valid Erlang process!
+`mix test.watch` command leaves some erlang zombie processes, We kill them with  `ps -ef|grep erlang|awk '{print $2}'|xargs kill` after some time, just be careful not to kill any other valid Erlang process!
 
 
 ## TODOs
