@@ -1,3 +1,8 @@
+[![Build Status](https://semaphoreci.com/api/v1/projects/9fc77807-07e5-483d-bc2d-d8cc76b46723/668386/badge.svg)](https://semaphoreci.com/ruby2elixir/sentry)
+[![Hex version](https://img.shields.io/hexpm/v/sentry.svg "Hex version")](https://hex.pm/packages/sentry)
+![Hex downloads](https://img.shields.io/hexpm/dt/sentry.svg "Hex downloads")
+
+
 # Sentry
 
 "Sentry provides a set of helpers and conventions that will guide you in leveraging Elixir modules to build a simple, robust authorization system." - Inspired by [elabs/pundit](https://github.com/elabs/pundit)
