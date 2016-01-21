@@ -8,8 +8,15 @@ defmodule SentryHelpersTest do
     defmodule FirstTestPolicy do
     end
 
+    defmodule Blup.FirstTestPolicy do
+    end
+
     it "makes sure that the policy module is actually defined" do
       assert SH.verify_policy!(FirstTestPolicy) == FirstTestPolicy
+    end
+
+    it "works with nested module names" do
+      assert SH.verify_policy!(Blup.FirstTestPolicy) == Blup.FirstTestPolicy
     end
 
     it "raises for undefined policies" do
