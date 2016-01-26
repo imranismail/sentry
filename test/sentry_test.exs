@@ -7,7 +7,7 @@ defmodule SentryTest do
   describe "testing plug" do
     defmodule SlimApp do
       defmodule UsersPolicy do
-        def show?(conn) do
+        def show?(_conn) do
           true
         end
 
@@ -27,7 +27,7 @@ defmodule SentryTest do
         |> put_private(:phoenix_action, :edit)
         |> put_private(:phoenix_controller, SlimApp.UsersController)
 
-      conn = conn |> SlimApp.UsersController.call([])
+      conn |> SlimApp.UsersController.call([])
     end
 
 
