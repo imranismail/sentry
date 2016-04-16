@@ -2,6 +2,8 @@
 [![Hex version](https://img.shields.io/hexpm/v/sentry.svg "Hex version")](https://hex.pm/packages/sentry)
 ![Hex downloads](https://img.shields.io/hexpm/dt/sentry.svg "Hex downloads")
 
+# Deprecated
+Deprecated in favour of [can](https://github.com/127labs/can)
 
 # Sentry
 Sentry provides a set of helpers and conventions that will guide you in leveraging Elixir modules to build a simple, robust authorization system.
